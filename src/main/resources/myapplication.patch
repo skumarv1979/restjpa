@@ -1,0 +1,222 @@
+### Eclipse Workspace Patch 1.0
+#P restjpa
+diff --git src/main/java/com/omrtb/restjpa/entity/model/User.java src/main/java/com/omrtb/restjpa/entity/model/User.java
+index 4d4838b..0967eb2 100644
+--- src/main/java/com/omrtb/restjpa/entity/model/User.java
++++ src/main/java/com/omrtb/restjpa/entity/model/User.java
+@@ -3,6 +3,9 @@
+ import java.io.Serializable;
+ import java.math.BigDecimal;
+ import java.sql.Date;
++import java.util.ArrayList;
++import java.util.Iterator;
++import java.util.List;
+ import java.util.Set;
+ import java.util.SortedSet;
+ import java.util.TreeSet;
+@@ -133,6 +136,33 @@
+     //@JsonIgnore
+     private Set<Events> events;
+ 
++    @OneToMany(
++    		mappedBy = "post",
++    		cascade = CascadeType.ALL,
++    		orphanRemoval = true
++	)
++    private List<UserEventsRegistration> userEvents = new ArrayList<UserEventsRegistration>();
++    public void addEvents(Events events) {
++    	UserEventsRegistration postTag = new UserEventsRegistration(this, events);
++    	userEvents.add(postTag);
++    	events.getPosts().add(postTag);
++    }
++ 
++    public void removeEvents(Events events) {
++        for (Iterator<UserEventsRegistration> iterator = userEvents.iterator();
++             iterator.hasNext(); ) {
++        	UserEventsRegistration userEvent = iterator.next();
++ 
++            if (userEvent.getUser().equals(this) &&
++            		userEvent.getEvents().equals(events)) {
++                iterator.remove();
++                userEvent.getTag().getPosts().remove(postTag);
++                userEvent.setUser(null);//(null);
++                userEvent.setEvents(null);
++            }
++        }
++    }
++
+     @OneToMany(cascade=CascadeType.ALL, fetch = FetchType.EAGER)
+     @JoinColumn(name="USER_ID")
+ 	//@JsonIgnoreProperties("user")
+diff --git src/main/java/com/omrtb/restjpa/entity/model/UserEventsRegistration.java src/main/java/com/omrtb/restjpa/entity/model/UserEventsRegistration.java
+new file mode 100644
+index 0000000..60d90ec
+--- /dev/null
++++ src/main/java/com/omrtb/restjpa/entity/model/UserEventsRegistration.java
+@@ -0,0 +1,96 @@
++package com.omrtb.restjpa.entity.model;
++
++import java.io.Serializable;
++import java.util.Date;
++import java.util.Objects;
++
++import javax.persistence.Column;
++import javax.persistence.EmbeddedId;
++import javax.persistence.FetchType;
++import javax.persistence.ManyToOne;
++import javax.persistence.MapsId;
++
++import org.hibernate.annotations.CreationTimestamp;
++
++public class UserEventsRegistration implements Serializable {
++	/**
++	 * 
++	 */
++	private static final long serialVersionUID = 1L;
++
++	@EmbeddedId
++	private UserEventsRegistrationId id;
++
++	@ManyToOne(fetch = FetchType.EAGER)
++	@MapsId("usersId")
++	private User user;
++
++	@ManyToOne(fetch = FetchType.EAGER)
++	@MapsId("eventsId")
++	private Events events;
++
++	@CreationTimestamp
++	@Column(name = "created_on")
++	private Date createdOn;
++
++	public UserEventsRegistration() {
++	}
++
++	public UserEventsRegistration(User user, Events events) {
++		this.user = user;
++		this.events = events;
++		this.id = new UserEventsRegistrationId(user.getId(), events.getId());
++	}
++
++	// Getters and setters omitted for brevity
++
++	@Override
++	public boolean equals(Object o) {
++		if (this == o)
++			return true;
++
++		if (o == null || getClass() != o.getClass())
++			return false;
++
++		UserEventsRegistration that = (UserEventsRegistration) o;
++		return Objects.equals(user, that.user) && Objects.equals(events, that.events);
++	}
++
++	public UserEventsRegistrationId getId() {
++		return id;
++	}
++
++	public void setId(UserEventsRegistrationId id) {
++		this.id = id;
++	}
++
++	public User getUser() {
++		return user;
++	}
++
++	public void setUser(User user) {
++		this.user = user;
++	}
++
++	public Events getEvents() {
++		return events;
++	}
++
++	public void setEvents(Events events) {
++		this.events = events;
++	}
++
++	public Date getCreatedOn() {
++		return createdOn;
++	}
++
++	public void setCreatedOn(Date createdOn) {
++		this.createdOn = createdOn;
++	}
++
++	@Override
++	public int hashCode() {
++		return Objects.hash(user, events);
++	}
++
++}
+diff --git src/main/java/com/omrtb/restjpa/entity/model/UserEventsRegistrationId.java src/main/java/com/omrtb/restjpa/entity/model/UserEventsRegistrationId.java
+new file mode 100644
+index 0000000..78559f1
+--- /dev/null
++++ src/main/java/com/omrtb/restjpa/entity/model/UserEventsRegistrationId.java
+@@ -0,0 +1,64 @@
++package com.omrtb.restjpa.entity.model;
++
++import java.io.Serializable;
++import java.util.Objects;
++
++import javax.persistence.Column;
++import javax.persistence.Embeddable;
++
++@Embeddable
++public class UserEventsRegistrationId implements Serializable {
++
++	/**
++	 * 
++	 */
++	private static final long serialVersionUID = 1L;
++
++	@Column(name = "users_id")
++	private Long usersId;
++	
++	@Column(name = "events_id")
++	private Long eventsId;
++	
++	public UserEventsRegistrationId() {
++	}
++	
++	public UserEventsRegistrationId(Long usersId, Long eventsId) {
++		this.usersId = usersId;
++		this.eventsId = eventsId;
++	}
++
++	public Long getUsersId() {
++		return usersId;
++	}
++
++	public void setUsersId(Long usersId) {
++		this.usersId = usersId;
++	}
++
++	public Long getEventsId() {
++		return eventsId;
++	}
++
++	public void setEventsId(Long eventsId) {
++		this.eventsId = eventsId;
++	}
++	
++    @Override
++    public boolean equals(Object o) {
++        if (this == o) return true;
++ 
++        if (o == null || getClass() != o.getClass())
++            return false;
++ 
++        UserEventsRegistrationId that = (UserEventsRegistrationId) o;
++        return Objects.equals(usersId, that.usersId) &&
++               Objects.equals(eventsId, that.eventsId);
++    }
++ 
++    @Override
++    public int hashCode() {
++        return Objects.hash(usersId, eventsId);
++    }
++	
++}
